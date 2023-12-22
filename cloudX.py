@@ -9,6 +9,8 @@ from requests.auth import HTTPBasicAuth
 import xml.etree.ElementTree as ET
 import json
 import webbrowser
+import subprocess
+import re
 
 db_file = 'C:/Users/Pratham Sharma/ownCloud - admin@localhost/.sync_journal.db'
 
@@ -273,6 +275,49 @@ def extract_info_from_owncloud(path):
     # if is_directory:
     #     extract_info_from_owncloud(item_path)
 
+
+def get_and_save_container_logs(container_name_or_id, output_file):
+    try:
+        # Run the docker logs command
+        logs_command = f"docker logs {container_name_or_id}"
+        logs_process = subprocess.Popen(logs_command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        logs_output, logs_error = logs_process.communicate()
+
+        # Check if there was an error
+        if logs_process.returncode != 0:
+            raise Exception(f"Error retrieving logs: {logs_error.decode('utf-8')}")
+
+        # Save the logs to a file
+        with open(output_file, 'w') as file:
+            file.write(logs_output.decode('utf-8'))
+
+        print(f"Logs saved to {output_file}")
+
+    except Exception as e:
+        print(f"Error: {e}")
+
+
+def finding_deleted_files(log_file_path):
+    log_pattern = re.compile(r'.*DELETE\s+([^\s]+)\s+HTTP.*')
+
+    # Open the log file and extract deleted file names
+    deleted_files = []
+    with open(log_file_path, 'r') as log_file:
+        for line in log_file:
+            match = log_pattern.match(line)
+            if match:
+                deleted_file = match.group(1)
+                file = deleted_file.split('/')
+                file.reverse()
+                # You might want to decode URL-encoded characters in the file name
+                deleted_files.append(file[0])
+
+    # Print the list of deleted file names
+    print("Deleted files:")
+    for file_name in deleted_files:
+        print(file_name)
+
+
 def main():
     print("Choose a platform:")
     print("1. Mega")
@@ -284,6 +329,7 @@ def main():
     elif choice == '2':
         print("1. Client side information")
         print("2. Server side information")
+        print("3. Extract deleted files")
         choice = input("Enter the information type number: ")
 
         if choice == '1':
@@ -298,6 +344,12 @@ def main():
              retrieve_server_info(USERNAME_OC, PASSWORD_OC)
              shared_item_info(USERNAME_OC, PASSWORD_OC)
              retrieve_server_logs(USERNAME_OC, PASSWORD_OC)
+        elif choice == '3':
+             container_name_or_id = "10e3fed681ff8f99e0d6f5ece34eabc4fcaea4005457e9e865e41730aa0ff1f7"
+             output_file = "C:/Users/Pratham Sharma/Desktop/logs.txt"
+
+             get_and_save_container_logs(container_name_or_id, output_file)
+             finding_deleted_files(output_file)     
         else:
          print("Invalid choice. Please enter 1 for client side information or 2 for server side information.")
 
